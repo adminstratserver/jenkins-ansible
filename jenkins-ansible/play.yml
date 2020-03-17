@@ -1,0 +1,6 @@
+---
+- hosts: test1
+  name: Create New User (A-0/8)
+  tasks:
+
+  - shell: echo Hello World-123 >> /tmp/ansible-file

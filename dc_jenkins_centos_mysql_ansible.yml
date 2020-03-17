@@ -1,0 +1,110 @@
+# PURPOSE:
+# =======
+#
+# 1. jenkins container (port 8080) which can be used to control remote_host via SSH (has private_key) and has ansible installed
+# 2. remote_host which has SSH_server (has public_key)
+# 3. mysql database
+#
+# FILES & ENVIRONMENT:
+# ====================
+# ./dc_jenkins_centos_mysql_ansible.yml
+# ./jenkins-ansible/remote-key
+# ./jenkins-ansible/Dockerfile_jenkins_ansible
+# ./jenkins-ansible/hosts
+# ./jenkins_home/
+# ./jenkins_home/ansible/remote-key
+# ./db_data (empty dir)
+# centos8/Dockerfile_centos8
+# centos8/remote-key (create using $ssh-keygen)
+# centos8/remote-key.pub
+#
+# CONTAINERS CREATION & SETUP:
+# ============================
+#
+# $ docker-compose -f docker-compose_jenkins_centos_mysql.yml up -d  --build
+#
+# 1. goto website: localhost:8080 and register jenkins
+# 2. 'Manage Jenkins'->'Manage Plugins'->'Available (Filter & Install SSH)'->restart
+# 3. 'Credentials'->'Jenkins'->'Global Credentials'->'Add Credentials'->'SSH Username with private key'
+#                   user: remote_user
+#                   privatekey: copy and paste centos8/remote-key
+# 4. 'Manage Jenkins'->'Configure System'->'SSH remote hosts'->SSH sites
+#          Hostname: remote_host
+#          port: 22
+#          Credentials: remote_user
+#         (check connection and click save)
+# 5. 'New Item'->'Freestyle Project'->'Build(Execute shell script on remote host using ssh)'
+#     Command:
+#       NAME=DavidTang
+#       echo "Hello $NAME. Current date & time is $(date)" > /tmp/remote-file
+#
+# CHECK IF SUCCESSFUL
+# ===================
+#
+# $docker exec -it remote_container bash
+# $cat /tmp/remote-file
+# $docker exec -it db_container bash
+# $mysql -u root -p 1234
+#
+# create new database
+# $docker exec -it remote_container bash
+# $mysql -u root -h db_host -p password
+# mysql> create database testdb;
+# mysql> use testdb;
+# mysql> create table info (name varchar(20), lastname varchar(20), age int(2));
+
+version: '3'
+services:
+  jenkins:
+    container_name: jenkins_container
+    image: jenkins-ansible
+    build:
+      context: jenkins-ansible
+      dockerfile: Dockerfile_jenkins_ansible
+    ports:
+      - "8080:8080"
+    volumes:
+      - $PWD/jenkins_home:/var/jenkins_home
+    networks:
+      - net
+  remote_host:
+    container_name: remote_container
+    image: remote_image
+    build:
+      context: centos8
+      dockerfile: Dockerfile_centos8_ssh_mysql_aws
+    networks:
+      - net
+#  db_host:
+#    container_name: db_container
+#    image: mysql:8.0
+#    environment:
+#      - "MYSQL_ROOT_PASSWORD=1234"
+#    volumes:
+#      - "$PWD/db_data:/var/lib/mysql"
+#    networks:
+#      - net
+  db_host:
+    container_name: db_container
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_DATABASE: 'db'
+      MYSQL_USER: 'user'
+      MYSQL_PASSWORD: 'password'
+      MYSQL_ROOT_PASSWORD: 'password'
+    ports:
+      - '3306:3306'
+    expose:
+      - '3306'
+      # Where our data will be persisted
+    #volumes:
+    #  - "$PWD/db_data:/var/lib/mysql"
+    volumes:
+      - my-db:/var/lib/mysql
+    networks:
+      - net
+networks:
+  net:
+volumes:
+  my-db:

@@ -1,0 +1,7 @@
+---
+- hosts: test1
+  name: prints a message from Jenkins
+  tasks:
+
+   - debug:
+       msg: "{{ MSG }}"
